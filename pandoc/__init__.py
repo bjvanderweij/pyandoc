@@ -1,1 +1,1 @@
-from core import *
+from pandoc.core import *
