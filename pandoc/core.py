@@ -13,7 +13,7 @@ class Document(object):
     """A formatted document."""
     INPUT_FORMATS = (
         'native', 'markdown', 'markdown+lhs', 'rst', 
-        'rst+lhs', 'html', 'latex', 'latex+lhs'
+        'rst+lhs', 'html', 'latex', 'latex+lhs', 'markdown+hard_line_breaks'
     )
     
     # removed pdf and epub which cannot be handled by stdout
@@ -27,34 +27,11 @@ class Document(object):
 
     # TODO: Add odt, epub formats (requires file access, not stdout)
     
-    def __init__(self):
+    def __init__(self, arguments = ['-s', '--mathjax']):
         self._content = None
         self._format = None
+        self.arguments = arguments
         self._register_formats()
-        self.arguments = []
-    
-
-    def bib(self, bibfile):
-        if not exists(bibfile):
-            raise IOError("Bib file not found: %s" % bibfile)
-        self.add_argument("bibliography=%s" % bibfile)
-
-
-    def csl(self, cslfile):
-        if not exists(cslfile):
-            raise IOError("CSL file not found: %s" % cslfile)
-        self.add_argument("csl=%s" % cslfile)
-
-    def abbr(self, abbrfile):
-        if not exists(abbrfile):
-            raise IOError("Abbreviations file not found: " + abbrfile)
-        self.add_argument("citation-abbreviations=%s" % abbrfile)
-        
-
-    def add_argument(self, arg):
-        self.arguments.append("--%s" % arg)
-        return self.arguments
-        
 
     @classmethod
     def _register_formats(cls):
@@ -73,38 +50,37 @@ class Document(object):
     
 
     def _output(self, format):
-        subprocess_arguments = [PANDOC_PATH, '--from=%s' % self._format, '--to=%s' % format]
-        subprocess_arguments.extend(self.arguments)
+        args = [PANDOC_PATH, '--from=%s' % self._format, '--to=%s' % format]
+        args.extend(self.arguments)
 
         p = subprocess.Popen(
-                subprocess_arguments,
+                args,
                 stdin=subprocess.PIPE, 
                 stdout=subprocess.PIPE
         )
         return p.communicate(self._content)[0]
 
+    def save(self, output_filename, format=None):
+        '''
+        Try to save the file to the specified output file.
+        Return true if successful
+        '''
+        args = [PANDOC_PATH, '--from=%s' % self._format, '--output=%s' % output_filename]
 
-    def to_file(self, output_filename):
-        '''handles pdf and epub format. 
-        Inpute: output_filename should have the proper extension.
-        Output: The name of the file created, or an IOError if failed'''
-        temp_file = NamedTemporaryFile(mode="w", suffix=".md", delete=False)
-        temp_file.write(self._content)
-        temp_file.close()
+        if format != None:
+            args.extend(['--to=%s' % format])
 
-        subprocess_arguments = [PANDOC_PATH, temp_file.name, '-o %s' % output_filename]
-        subprocess_arguments.extend(self.arguments)      
-        cmd = " ".join(subprocess_arguments) 
+        args.extend(self.arguments)      
 
-        fin = os.popen(cmd)
-        msg = fin.read()
-        fin.close()
-        if msg:
-            print("Pandoc message:", msg)
+        p = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+        )
+
+        (stdoutdata, stderrdata) = p.communicate(self._content)
+        self.pandoc_result = (stdoutdata, stderrdata)
         
-        os.remove(temp_file.name)
-        
-        if exists(output_filename):
-            return output_filename
-        else:
-            raise IOError("Failed creating file: %s" % output_filename)
+        return p.returncode == 0
+
