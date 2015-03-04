@@ -12,41 +12,40 @@ def set_path(path):
 class Document(object):
     """A formatted document."""
     INPUT_FORMATS = (
-        'native', 'markdown', 'markdown+lhs', 'rst', 
-        'rst+lhs', 'html', 'latex', 'latex+lhs', 'markdown+hard_line_breaks'
+        'native', 'markdown', 'rst', 
+        'html', 'latex',
     )
     
     # removed pdf and epub which cannot be handled by stdout
     OUTPUT_FORMATS = (
-        'native', 'html', 'html+lhs', 's5', 'slidy', 
+        'native', 'html', 's5', 'slidy', 
         'docbook', 'opendocument', 'odt',
-        'latex', 'latex+lhs', 'context', 'texinfo', 
-        'man', 'markdown', 'markdown+lhs', 'plain', 
-        'rst', 'rst+lhs', 'mediawiki', 'rtf', 'markdown_github'
+        'latex', 'context', 'texinfo', 
+        'man', 'markdown', 'plain', 
+        'rst', 'mediawiki', 'rtf', 'markdown_github'
     )
 
-    # TODO: Add odt, epub formats (requires file access, not stdout)
-    
-    def __init__(self, arguments = ['-s', '--mathjax']):
+    def __init__(self, arguments=['-s', '--mathjax'], extensions=[]):
         self._content = None
         self._format = None
         self.arguments = arguments
+        self.extensions = extensions
         self._register_formats()
 
     @classmethod
     def _register_formats(cls):
         """Adds format properties."""
         for fmt in cls.OUTPUT_FORMATS:
-            clean_fmt = fmt.replace('+', '_')
-            setattr(cls, clean_fmt, property(
+            setattr(cls, fmt, property(
                 (lambda x, fmt=fmt: cls._output(x, fmt)), # fget
                 (lambda x, y, fmt=fmt: cls._input(x, y, fmt)))) # fset
     
 
     def _input(self, value, format=None):
-        # format = format.replace('_', '+')
         self._content = value
         self._format = format
+        if len(self.extensions) > 0:
+            self._format += '+' + '+'.join(self.extensions)
     
 
     def _output(self, format):
